@@ -1,11 +1,13 @@
 services:
   messenger-be:
+    container_name: messenger-be
     build:
       context: ./messenger-be
     networks:
       - messenger
 
   messenger-fe:
+    container_name: messenger-fe
     build:
       context: ./messenger-fe
     depends_on:
