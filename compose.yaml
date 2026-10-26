@@ -14,8 +14,6 @@ services:
       - messenger-be
     environment:
       BACKEND_URL: http://messenger-be:3000
-    ports:
-      - "1220:80"
     networks:
       - messenger
       - home
