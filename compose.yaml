@@ -6,6 +6,10 @@ services:
     networks:
       - messenger
       - home
+    environment:
+      DATABASE_URL: sqlite:///data/messages.db
+    volumes:
+      - messenger-data:/data
 
   messenger-fe:
     container_name: messenger-fe
@@ -24,3 +28,6 @@ networks:
     driver: bridge
   home:
     external: true
+
+volumes:
+  messenger-data:
