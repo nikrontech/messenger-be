@@ -38,11 +38,11 @@ async fn main() {
         .route("/ws", get(websocket_handler))
         .with_state(AppState { messages });
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
         .await
-        .expect("failed to bind server to 127.0.0.1:3000");
+        .expect("failed to bind server to 0.0.0.0:3000");
 
-    info!("WebSocket server listening at ws://127.0.0.1:3000/ws");
+    info!("WebSocket server listening on port 3000");
     axum::serve(listener, app)
         .await
         .expect("WebSocket server failed");
