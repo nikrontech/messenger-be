@@ -1,3 +1,7 @@
 /target
 
 .idea/
+
+# Local SQLite database
+*.db
+/data/
