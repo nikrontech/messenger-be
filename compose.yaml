@@ -1,0 +1,22 @@
+services:
+  messenger-be:
+    build:
+      context: ./messenger-be
+    networks:
+      - messenger
+
+  messenger-fe:
+    build:
+      context: ./messenger-fe
+    depends_on:
+      - messenger-be
+    environment:
+      BACKEND_URL: http://messenger-be:3000
+    ports:
+      - "1220:80"
+    networks:
+      - messenger
+
+networks:
+  messenger:
+    driver: bridge
