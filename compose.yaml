@@ -18,7 +18,10 @@ services:
       - "1220:80"
     networks:
       - messenger
+      - home
 
 networks:
   messenger:
     driver: bridge
+  home:
+    external: true
