@@ -10,6 +10,7 @@ use axum::{
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
+use tracing::{debug, error, info, warn};
 
 const BROADCAST_CAPACITY: usize = 100;
 
@@ -26,6 +27,12 @@ struct ChatMessage {
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .with_target(false)
+        .with_writer(std::io::stdout)
+        .init();
+
     let (messages, _) = broadcast::channel(BROADCAST_CAPACITY);
     let app = Router::new()
         .route("/ws", get(websocket_handler))
@@ -35,7 +42,7 @@ async fn main() {
         .await
         .expect("failed to bind server to 127.0.0.1:3000");
 
-    println!("WebSocket server listening at ws://127.0.0.1:3000/ws");
+    info!("WebSocket server listening at ws://127.0.0.1:3000/ws");
     axum::serve(listener, app)
         .await
         .expect("WebSocket server failed");
@@ -49,6 +56,8 @@ async fn websocket_handler(
 }
 
 async fn handle_socket(socket: WebSocket, state: AppState) {
+    info!("WebSocket client connected");
+
     let (mut sender, mut receiver) = socket.split();
     let mut messages = state.messages.subscribe();
 
@@ -56,11 +65,30 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
         tokio::select! {
             incoming = receiver.next() => match incoming {
                 Some(Ok(Message::Text(text))) => {
-                    if let Ok(message) = serde_json::from_str::<ChatMessage>(&text) {
-                        let _ = state.messages.send(message);
+                    match serde_json::from_str::<ChatMessage>(&text) {
+                        Ok(message) => {
+                            info!(username = %message.username, "Broadcasting message");
+                            if let Err(error) = state.messages.send(message) {
+                                debug!(?error, "No clients available to receive message");
+                            }
+                        }
+                        Err(error) => {
+                            warn!(?error, "Ignoring malformed chat message");
+                        }
                     }
                 }
-                Some(Ok(Message::Close(_))) | None | Some(Err(_)) => break,
+                Some(Ok(Message::Close(_))) => {
+                    info!("WebSocket client requested disconnect");
+                    break;
+                }
+                None => {
+                    info!("WebSocket client disconnected");
+                    break;
+                }
+                Some(Err(error)) => {
+                    warn!(?error, "WebSocket receive error");
+                    break;
+                }
                 Some(Ok(_)) => {}
             },
             outgoing = messages.recv() => match outgoing {
@@ -69,11 +97,17 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                         .expect("ChatMessage should always serialize");
 
                     if sender.send(Message::Text(text.into())).await.is_err() {
+                        warn!("Failed to send message to WebSocket client");
                         break;
                     }
                 }
-                Err(broadcast::error::RecvError::Lagged(_)) => continue,
-                Err(broadcast::error::RecvError::Closed) => break,
+                Err(broadcast::error::RecvError::Lagged(count)) => {
+                    warn!(count, "WebSocket client lagged behind broadcast channel");
+                }
+                Err(broadcast::error::RecvError::Closed) => {
+                    error!("Broadcast channel closed");
+                    break;
+                }
             },
         }
     }
