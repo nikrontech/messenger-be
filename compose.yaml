@@ -5,6 +5,7 @@ services:
       context: ./messenger-be
     networks:
       - messenger
+      - home
 
   messenger-fe:
     container_name: messenger-fe
